@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+  <p class="mb-8 text-gray-700 text-center max-w-2xl mx-auto">
+    This application helps you manage your Kubernetes secrets locally and securely. Organize secrets by environment, easily encode/decode values, and import/export data compatible with Kubernetes Secret YAML.
+  </p>
+
+  <div class="bg-white p-6 rounded-lg shadow-xl mb-8 border border-gray-200">
+    <h2 class="text-2xl font-semibold text-blue-700 mb-4 border-b pb-3">Manage Environments</h2>
+    <p class="text-sm text-gray-600 mb-4">Create different environments (like `uat`, `prod`, `dev`) to keep your secrets organized. Each environment's secrets are stored in a separate file.</p>
+
+    <form action="{{ url_for('select_env') }}" method="post" class="mb-4 border-b pb-4">
+      <label for="env_name" class="block text-sm font-medium text-gray-700 mb-2">Add New Environment:</label>
+      <div class="flex flex-col sm:flex-row gap-4 items-end">
+          <input type="text" id="env_name" name="env_name" placeholder="e.g. uat, prod" required class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+          <button type="submit" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Add Env</button>
+      </div>
+    </form>
+
+    {% if envs %}
+    <div class="flex flex-col sm:flex-row gap-4 items-center">
+      <form action="{{ url_for('index') }}" method="get" class="flex flex-grow w-full sm:w-auto gap-4 items-center">
+        <label for="select_env" class="block text-sm font-medium text-gray-700">Select Environment:</label>
+        <select id="select_env" name="env" class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+          {% for e in envs %}
+            <option value="{{ e }}" {% if e == selected_env %}selected{% endif %}>{{ e }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Load Env</button>
+      </form>
+       {% if selected_env %}
+       <form action="{{ url_for('delete_env') }}" method="post" onsubmit="return confirm('Are you sure you want to delete the environment \'{{ selected_env }}\'? This cannot be undone.');">
+         <input type="hidden" name="env" value="{{ selected_env }}">
+         <button type="submit" class="px-6 py-2 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Delete Selected Env</button>
+       </form>
+       {% endif %}
+    </div>
+    {% else %}
+     <p class="text-gray-600 italic">No environments created yet. Use the form above to add your first environment.</p>
+    {% endif %}
+  </div>
+
+  {% if selected_env %}
+  <div class="bg-white p-6 rounded-lg shadow-xl mb-8 border border-gray-200">
+    <h2 class="text-2xl font-semibold text-blue-700 mb-4 border-b pb-3">Working with Environment: <span class="font-bold">{{ selected_env }}</span></h2>
+
+    <form action="{{ url_for('add_secret') }}" method="post" class="mb-6 border-b pb-6">
+      <input type="hidden" name="env" value="{{ selected_env }}">
+      <h3 class="text-lg font-medium text-gray-700 mb-3">Add/Update Single Secret</h3>
+      <p class="text-sm text-gray-600 mb-4">Add a new secret key-value pair or update an existing one. The value you enter will be automatically Base64 encoded.</p>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div>
+          <label for="key" class="block text-sm font-medium text-gray-700 mb-2">Key:</label>
+          <input type="text" id="key" name="key" placeholder="e.g. DATABASE_URL" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div>
+          <label for="value" class="block text-sm font-medium text-gray-700 mb-2">Value:</label>
+          <input type="text" id="value" name="value" placeholder="e.g. postgres://user:pass@host:port/db" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+        </div>
+        <div>
+          <button type="submit" class="w-full px-6 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Add/Update Secret</button>
+        </div>
+      </div>
+    </form>
+
+    <div class="mb-6 border-b pb-6">
+      <h3 class="text-lg font-medium text-gray-700 mb-3">Actions for this Environment:</h3>
+       <p class="text-sm text-gray-600 mb-4">View decoded secrets, edit all secrets in a table, or export secrets in a format suitable for Kubernetes YAML.</p>
+      <div class="flex flex-wrap gap-4 items-center">
+        <form action="{{ url_for('show') }}" method="get" class="flex items-center gap-4">
+          <input type="hidden" name="env" value="{{ selected_env }}">
+          <label for="show_key" class="text-sm font-medium text-gray-700">Show Decoded Value for Key:</label>
+          <input type="text" id="show_key" name="key" placeholder="e.g. API_KEY" required class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 w-40">
+          <button type="submit" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Show</button>
+        </form>
+
+        <form action="{{ url_for('show_all') }}" method="get">
+          <input type="hidden" name="env" value="{{ selected_env }}">
+          <button type="submit" class="px-6 py-2 bg-yellow-600 text-white font-semibold rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2">Edit All Secrets</button>
+        </form>
+
+        <form action="{{ url_for('export_env') }}" method="get">
+          <input type="hidden" name="env" value="{{ selected_env }}">
+          <button type="submit" class="px-6 py-2 bg-purple-600 text-white font-semibold rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">Export (.yaml data block)</button>
+        </form>
+      </div>
+    </div>
+
+
+    <form action="{{ url_for('bulk_paste') }}" method="post" class="bg-white p-6 rounded-lg shadow-xl border border-gray-200">
+      <input type="hidden" name="env" value="{{ selected_env }}">
+      <h3 class="text-2xl font-semibold text-blue-700 mb-4 border-b pb-3">Bulk Paste from Kubernetes Secret YAML</h3>
+      <p class="text-sm text-gray-600 mb-3">
+        Paste the `data:` block from a Kubernetes Secret YAML (e.g., output of `kubectl get secret YOUR_SECRET_NAME -o yaml`) here. The application will parse it, decode the Base64 values, and show them for review before you confirm adding/updating them to this environment. This is useful for migrating existing secrets or performing bulk updates.
+        Example format:
+      </p>
+      <pre class="bg-gray-100 p-3 rounded-md text-sm mb-4 overflow-x-auto whitespace-pre-wrap border border-gray-300"><code>data:
+  MY_SECRET_KEY_1: encoded_value_1
+  ANOTHER_KEY: encoded_value_2
+...</code></pre>
+      <textarea name="bulk" rows="8" placeholder="Paste YAML with 'data:' block here" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 mb-4"></textarea><br>
+      <button type="submit" class="px-6 py-2 bg-teal-600 text-white font-semibold rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2">Parse & Review</button>
+    </form>
+    {% endif %}
+{% endblock %}

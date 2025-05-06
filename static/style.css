@@ -1,0 +1,56 @@
+/*
+  Custom styles for the Kubernetes Secret Manager application.
+  These are used in addition to Tailwind CSS utility classes.
+*/
+
+/* Styles for flash messages */
+.flash-message {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.375rem; /* Matches Tailwind rounded-md */
+}
+
+.flash-success {
+    background-color: #d4edda; /* Tailwind green-100 */
+    color: #155724; /* Tailwind green-800 */
+    border: 1px solid #c3e6cb; /* Tailwind green-200 */
+}
+
+.flash-error {
+    background-color: #f8d7da; /* Tailwind red-100 */
+    color: #721c24; /* Tailwind red-800 */
+    border: 1px solid #f5c6cb; /* Tailwind red-200 */
+}
+
+.flash-warning {
+    background-color: #fff3cd; /* Tailwind yellow-100 */
+    color: #856404; /* Tailwind yellow-800 */
+    border: 1px solid #ffeeba; /* Tailwind yellow-200 */
+}
+
+.flash-info {
+    background-color: #d1ecf1; /* Tailwind blue-100 */
+    color: #0c5460; /* Tailwind blue-800 */
+    border: 1px solid #bee5eb; /* Tailwind blue-200 */
+}
+
+/* Basic table styling (can be further enhanced with Tailwind classes in HTML) */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 0.75rem; /* Matches Tailwind p-3 */
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb; /* Using Tailwind gray-200 */
+}
+
+th {
+    background-color: #f9fafb; /* Using Tailwind gray-50 */
+}
+
+/* Zebra striping for table rows */
+tbody tr:nth-child(odd) {
+    background-color: #f3f4f6; /* Using Tailwind gray-100 */
+}

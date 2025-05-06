@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Review Bulk Import: {{ env }}{% endblock %}
+
+{% block content %}
+  <div class="bg-white p-6 rounded-lg shadow-md">
+    <h1 class="text-2xl font-bold text-blue-700 mb-4">Review Bulk Import (<span class="font-semibold">{{ env }}</span>)</h1>
+    {% if decoded %}
+      <p class="mb-4 text-gray-700">Review the secrets below. Confirming will add or update these secrets in your <code>{{ env }}.csv</code> file. Existing keys will be overwritten.</p>
+      <ul class="bg-gray-50 p-6 rounded-lg shadow-inner mb-6 divide-y divide-gray-200 border border-gray-200">
+      {% for key, val in decoded.items() %}
+        <li class="py-3">
+          <strong class="text-blue-600">{{ key }}</strong>: <span class="font-mono break-all text-gray-700">{{ val }}</span>
+        </li>
+      {% endfor %}
+      </ul>
+      <form action="{{ url_for('bulk_confirm') }}" method="post" class="flex flex-col sm:flex-row gap-4">
+        <input type="hidden" name="env" value="{{ env }}">
+        <input type="hidden" name="bulk_data_encoded_json" value="{{ bulk_data_encoded_json }}">
+        <button type="submit" class="px-6 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Confirm Import</button>
+        <button type="button" onclick="window.location='{{ url_for('index', env=env) }}'" class="px-6 py-2 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Cancel</button>
+      </form>
+    {% else %}
+      <p class="bg-yellow-100 text-yellow-800 p-4 rounded-md shadow-md">No valid secrets found under the <code>data:</code> block or failed to process the input.</p>
+      <a href="{{ url_for('index', env=env) }}" class="inline-block mt-6 px-6 py-2 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Back to Environment Actions</a>
+    {% endif %}
+  </div>
+{% endblock %}
