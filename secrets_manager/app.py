@@ -3,6 +3,7 @@ import csv
 import base64
 import yaml
 import json
+import sys # Import sys to potentially find gunicorn
 from flask import Flask, request, redirect, url_for, render_template, Response, flash, get_flashed_messages, jsonify
 
 # Get the absolute path of the directory containing this script (app.py)
@@ -568,9 +569,42 @@ def search_other_envs():
     # Return unique environment names
     return jsonify(list(set(found_in_envs)))
 
+# --- New function to run the server ---
+def run_server():
+    """Runs the application using Gunicorn."""
+    # This function will be the entry point for the script
+    # We'll use gunicorn's command line interface via subprocess or os.execv
+    # A simpler way for setuptools scripts is to just point to a function
+    # that starts the WSGI server. Gunicorn can be started programmatically.
+
+    # Find the gunicorn executable in the virtual environment
+    gunicorn_executable = os.path.join(sys.prefix, 'Scripts', 'gunicorn.exe') if sys.platform == "win32" else os.path.join(sys.prefix, 'bin', 'gunicorn')
+
+    if not os.path.exists(gunicorn_executable):
+        print("Error: gunicorn executable not found in the virtual environment.")
+        print("Please ensure gunicorn is installed (uv add gunicorn or pip install gunicorn)")
+        sys.exit(1)
+
+    # Command and arguments for gunicorn
+    # We pass the module path 'secrets_manager.app'
+    # Gunicorn will find the 'app' object within that module
+    command = [
+        gunicorn_executable,
+        '--workers', '3', # Number of worker processes
+        '--bind', '127.0.0.1:5000', # Bind to localhost on port 5000
+        'secrets_manager.app:app' # Module:app object
+    ]
+
+    print(f"Starting Gunicorn server with command: {' '.join(command)}")
+    # Replace the current process with the gunicorn process
+    os.execv(gunicorn_executable, command)
+
 
 if __name__ == '__main__':
-    # Run the Flask development server
-    # In a production environment, use a production-ready WSGI server
-    # Consider setting SECRET_KEY environment variable in production
-    app.run(debug=True) # Set debug=False for production
+    # This block is typically for running the development server directly
+    # If running via the entry point script, run_server() is called instead
+    # For development, you might still want app.run(debug=True)
+    # But for the entry point script, we want Gunicorn
+    print("Running Flask development server (use 'k8s-secret-manager' for production-like server)")
+    app.run(debug=True)
+

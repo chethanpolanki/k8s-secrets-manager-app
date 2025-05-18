@@ -1,13 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "k8s-secrets-manager-app" # Changed name slightly for clarity
+name = "k8s-secrets-manager-app"
 version = "0.1.0"
 description = "A local tool for managing Kubernetes secrets"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12" # Keep your preferred Python version
 dependencies = [
     "flask>=3.1.0",
     "pyyaml>=6.0.2",
-]
+    "gunicorn>=22.0.0",
+] 
 
 [project.scripts]
-k8s-secret-manager = "secrets_manager.app:app"
+# Change the entry point to point to the new run_server function
+k8s-secret-manager = "secrets_manager.app:run_server"
+
+# --- uv specific tool settings ---
+[tool.uv]
+package = true
+
+# --- setuptools package discovery configuration ---
+[tool.setuptools.packages.find]
+where = ["."] # Look for packages starting from the current directory
+include = ["secrets_manager*"] # Only include directories starting with 'secrets_manager'
+# exclude = [...] # You could also exclude directories if needed, but include is sufficient here

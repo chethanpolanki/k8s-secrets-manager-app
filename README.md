@@ -23,7 +23,7 @@ You can install this package directly from the GitHub repository using `pip` or 
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/chethanpolanki/k8s-secrets-manager-app.git](https://github.com/chethanpolanki/k8s-secrets-manager-app.git)
+    git clone https://github.com/chethanpolanki/k8s-secrets-manager-app.git
     cd k8s-secrets-manager-app
     ```
 
@@ -44,12 +44,12 @@ You can install this package directly from the GitHub repository using `pip` or 
 
     Using `uv`:
     ```bash
-    uv pip install git+[https://github.com/chethanpolanki/k8s-secrets-manager-app.git](https://github.com/chethanpolanki/k8s-secrets-manager-app.git)
+    uv pip install git+https://github.com/chethanpolanki/k8s-secrets-manager-app.git
     ```
 
     Using `pip`:
     ```bash
-    pip install git+[https://github.com/chethanpolanki/k8s-secrets-manager-app.git](https://github.com/chethanpolanki/k8s-secrets-manager-app.git)
+    pip install git+https://github.com/chethanpolanki/k8s-secrets-manager-app.git
     ```
 
 ## Usage

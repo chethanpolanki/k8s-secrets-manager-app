@@ -3,49 +3,113 @@
 {% block title %}Edit All Secrets: {{ env }}{% endblock %}
 
 {% block head_extra %}
+<style>
+  /* Basic styles for the modal overlay and content box */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black */
+    display: none; /* Hidden by default */
+    justify-content: center;
+    align-items: center;
+    z-index: 1000; /* Ensure it's on top */
+  }
+
+  .modal-content {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 800px;
+    width: 90%;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative; /* Needed for close button positioning */
+  }
+
+  .modal-content textarea {
+    width: 100%;
+    height: 400px; /* Adjust height as needed */
+    margin-bottom: 15px;
+    font-family: monospace;
+    font-size: 0.9em;
+    border: 1px solid #ccc;
+    padding: 10px;
+    resize: vertical;
+  }
+
+  .modal-close-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.2em;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 5px;
+  }
+</style>
 <script>
   // JavaScript for real-time search and cross-environment suggestions
   document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('secretSearch');
     const tableBody = document.querySelector('#secretsTable tbody');
+    // Ensure tableBody is found before querying rows
     const rows = tableBody ? tableBody.querySelectorAll('tr') : [];
     const suggestionBox = document.getElementById('suggestionBox');
     const currentEnv = "{{ env }}"; // Get the current environment from Flask
 
-    if (!searchInput || !tableBody) {
-        console.error("Search input or table body not found.");
-        return;
+    // Elements for the raw YAML display
+    const showRawYamlBtn = document.getElementById('showRawYamlBtn');
+    const modalOverlay = document.getElementById('rawYamlModalOverlay');
+    const rawYamlTextarea = document.getElementById('rawYamlContent');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const copyRawYamlBtn = document.getElementById('copyRawYamlBtn'); // Button inside modal
+
+    if (!searchInput || !tableBody || !showRawYamlBtn || !modalOverlay || !rawYamlTextarea || !closeModalBtn) {
+      console.error("One or more required elements not found for JS functionality.");
+      // Continue with the rest of the script even if some elements are missing,
+      // but the relevant functionality might not work.
     }
 
-    searchInput.addEventListener('input', function() {
-      const searchTerm = searchInput.value.toLowerCase();
-      let visibleRowCount = 0;
+    // --- Search and Suggestions Logic ---
+    if (searchInput && tableBody) {
+        searchInput.addEventListener('input', function() {
+          const searchTerm = searchInput.value.toLowerCase();
+          let visibleRowCount = 0;
 
-      rows.forEach(row => {
-        const keyCell = row.cells[0];
-        const valueCell = row.cells[1];
-        if (keyCell && valueCell) {
-          const keyText = keyCell.textContent.toLowerCase();
-          const valueInput = valueCell.querySelector('input[name="values"]');
-          const valueText = valueInput ? valueInput.value.toLowerCase() : '';
+          rows.forEach(row => {
+            const keyCell = row.cells[0];
+            const valueInput = row.querySelector('input[name="values"]'); // Get the input directly
+            const deleteForm = row.querySelector('form'); // Get the delete form to hide/show
 
-          // Check if search term is in key or value
-          if (keyText.includes(searchTerm) || valueText.includes(searchTerm)) {
-            row.style.display = ''; // Show row
-            visibleRowCount++;
+            if (keyCell && valueInput && deleteForm) {
+              const keyText = keyCell.textContent.toLowerCase();
+              const valueText = valueInput.value.toLowerCase();
+
+              // Check if search term is in key or value
+              if (keyText.includes(searchTerm) || valueText.includes(searchTerm)) {
+                row.style.display = ''; // Show row
+                visibleRowCount++;
+              } else {
+                row.style.display = 'none'; // Hide row
+              }
+            } else {
+                // Handle unexpected row structure if necessary
+                console.warn("Skipping row due to unexpected structure:", row);
+            }
+          });
+
+          // Check for suggestions in other environments if no results found locally
+          if (searchTerm.length > 0 && visibleRowCount === 0) {
+            fetchSuggestions(searchTerm);
           } else {
-            row.style.display = 'none'; // Hide row
+            if(suggestionBox) suggestionBox.innerHTML = ''; // Clear suggestions if results are found or search term is empty
           }
-        }
-      });
+        });
+    }
 
-      // Check for suggestions in other environments if no results found locally
-      if (searchTerm.length > 0 && visibleRowCount === 0) {
-          fetchSuggestions(searchTerm);
-      } else {
-          suggestionBox.innerHTML = ''; // Clear suggestions if results are found or search term is empty
-      }
-    });
 
     function fetchSuggestions(searchTerm) {
         // Make an asynchronous request to the Flask endpoint
@@ -56,27 +120,100 @@
             })
             .catch(error => {
                 console.error('Error fetching suggestions:', error);
-                suggestionBox.innerHTML = '<p class="text-red-600 text-sm mt-2">Error fetching suggestions.</p>';
+                if(suggestionBox) suggestionBox.innerHTML = '<p class="text-red-600 text-sm mt-2">Error fetching suggestions.</p>';
             });
     }
 
     function displaySuggestions(envs) {
-        suggestionBox.innerHTML = ''; // Clear previous suggestions
-        if (envs.length > 0) {
-            const suggestionText = document.createElement('p');
-            suggestionText.className = 'text-gray-600 text-sm mt-2';
-            suggestionText.textContent = 'Found in other environments: ';
-            suggestionBox.appendChild(suggestionText);
+        if(suggestionBox) {
+            suggestionBox.innerHTML = ''; // Clear previous suggestions
+            if (envs.length > 0) {
+                const suggestionText = document.createElement('p');
+                // Adjusted Tailwind classes for better text color/size
+                suggestionText.className = 'text-gray-700 text-sm mt-2 inline-block me-2'; // Use me-2 for right margin
+                suggestionText.textContent = 'Found in other environments: ';
+                suggestionBox.appendChild(suggestionText);
 
-            envs.forEach((env, index) => {
-                const envLink = document.createElement('a');
-                envLink.href = `{{ url_for('show_all', env='_ENV_') }}`.replace('_ENV_', env);
-                envLink.className = 'text-blue-600 hover:underline text-sm';
-                envLink.textContent = env;
-                suggestionBox.appendChild(envLink);
-                if (index < envs.length - 1) {
-                    suggestionBox.appendChild(document.createTextNode(', '));
-                }
+                envs.forEach((env, index) => {
+                    const envLink = document.createElement('a');
+                    envLink.href = `{{ url_for('show_all', env='_ENV_') }}`.replace('_ENV_', env);
+                    // Adjusted Tailwind classes for better link color/styling
+                    envLink.className = 'text-blue-600 hover:underline text-sm inline-block';
+                    envLink.textContent = env;
+                    suggestionBox.appendChild(envLink);
+                    if (index < envs.length - 1) {
+                        // Add a comma and space after each link except the last one
+                        suggestionBox.appendChild(document.createTextNode(', '));
+                    }
+                });
+            }
+        }
+    }
+
+    // --- Raw YAML Display Logic ---
+    if (showRawYamlBtn && modalOverlay && rawYamlTextarea && closeModalBtn) {
+        showRawYamlBtn.addEventListener('click', function() {
+            let encodedData = "data:\n";
+
+            // Check if there are any secrets in the decoded_list passed from Flask
+            // The 'decoded_list' variable comes from your Flask route
+            // Check if it's empty or null
+            const decodedList = JSON.parse('{{ decoded_list | tojson | safe }}'); // Safely pass Python list to JS
+
+            if (!decodedList || decodedList.length === 0) {
+                 encodedData += "  # No secrets defined for this environment";
+            } else {
+                 // Iterate through the actual decoded list passed from Flask
+                 // This ensures we get all secrets, not just currently visible ones
+                 decodedList.forEach(secret => {
+                     const key = secret.key;
+                     const value = secret.value; // This is the decoded value
+
+                     try {
+                         // Re-encode the decoded value to base64 for the YAML output
+                         // Using btoa with encode/decodeURIComponent for UTF-8 safety
+                         const encodedValue = btoa(unescape(encodeURIComponent(value)));
+                         encodedData += `  ${key}: ${encodedValue}\n`;
+                     } catch (e) {
+                         console.error(`Error encoding key ${key} for YAML display:`, e);
+                         encodedData += `  ${key}: [ENCODING_ERROR]\n`;
+                     }
+                 });
+            }
+
+
+            rawYamlTextarea.value = encodedData; // Set the textarea value
+            modalOverlay.style.display = 'flex'; // Show the modal
+        });
+
+        closeModalBtn.addEventListener('click', function() {
+            modalOverlay.style.display = 'none'; // Hide the modal
+            rawYamlTextarea.value = ''; // Clear the textarea
+        });
+
+        // Optional: Click outside the modal content to close it
+        modalOverlay.addEventListener('click', function(event) {
+            if (event.target === modalOverlay) {
+                modalOverlay.style.display = 'none';
+                rawYamlTextarea.value = '';
+            }
+        });
+
+        // Optional: Add copy functionality for the raw YAML
+        if (copyRawYamlBtn) {
+            copyRawYamlBtn.addEventListener('click', function() {
+                 navigator.clipboard.writeText(rawYamlTextarea.value)
+                     .then(() => {
+                         // Provide feedback
+                         copyRawYamlBtn.textContent = 'Copied!';
+                         setTimeout(() => {
+                            copyRawYamlBtn.textContent = 'Copy Encoded Data';
+                         }, 2000); // Reset button text after 2 seconds
+                     })
+                     .catch(err => {
+                         console.error("Failed to copy raw YAML: ", err);
+                         alert("Failed to copy data to clipboard. Please copy manually from the text box.");
+                     });
             });
         }
     }
@@ -86,9 +223,25 @@
 {% endblock %}
 
 {% block content %}
+<div class="container mx-auto px-4 py-6"> {# Use container and padding for layout #}
   <div class="bg-white p-6 rounded-lg shadow-md">
     <h1 class="text-2xl font-bold text-blue-700 mb-4">Edit All Secrets (<span class="font-semibold">{{ env }}</span>)</h1>
     <p class="text-sm text-gray-600 mb-4">Edit the decoded values for all secrets in this environment. Click "Update All" to save your changes (values will be re-encoded). You can also delete individual secrets or add new ones below.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-4"> {# Added margin-bottom #}
+          {% for category, message in messages %}
+            {# Adjusted alert classes for Tailwind #}
+            <div class="bg-{{ category if category != 'error' else 'red' }}-100 border border-{{ category if category != 'error' else 'red' }}-400 text-{{ category if category != 'error' else 'red' }}-700 px-4 py-3 rounded relative mb-2" role="alert">
+              <span class="block sm:inline">{{ message }}</span>
+              {# Simple close button, Tailwind doesn't provide JS for it #}
+              {# Consider adding JS to hide parent div on click if needed #}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
 
     <div class="mb-6 border-b pb-6">
        <h3 class="text-lg font-medium text-gray-700 mb-3">Add New Secret</h3>
@@ -123,42 +276,75 @@
         </div>
 
         {% if decoded_list %}
-        <div class="overflow-x-auto"> {# Add horizontal scroll on small screens if table is wide #}
-          <table id="secretsTable" class="min-w-full divide-y divide-gray-200 mb-6 border border-gray-200 rounded-md overflow-hidden">
-            <thead class="bg-gray-50">
-              <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th> {# Added Actions column #}
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-            {% for secret in decoded_list %} {# Iterate through list of dictionaries #}
-              <tr>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ secret.key }}</td> {# Access key using dot notation #}
-                <td class="px-6 py-4 text-sm text-gray-500">
-                  <input type="hidden" name="keys" value="{{ secret.key }}"> {# Access key using dot notation #}
-                  <input type="text" name="values" value="{{ secret.value }}" class="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"> {# Access value using dot notation #}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium"> {# Actions column cell #}
-                   <form action="{{ url_for('delete_secret') }}" method="post" onsubmit="return confirm('Are you sure you want to delete the secret \'{{ secret.key }}\'? This cannot be undone.');" class="inline-block"> {# Access key using dot notation #}
-                      <input type="hidden" name="env" value="{{ env }}">
-                      <input type="hidden" name="key" value="{{ secret.key }}"> {# Access key using dot notation #}
-                      <button type="submit" class="px-4 py-2 bg-red-600 text-white text-xs font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Delete</button>
-                   </form>
-                </td>
-              </tr>
-            {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        <div class="flex gap-4">
-          <button type="submit" class="px-6 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Update All Shown Secrets</button> {# Updated button text #}
-          <button type="button" onclick="window.location='{{ url_for('index', env=env) }}'" class="px-6 py-2 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Back to Dashboard</button> {# Updated button text #}
-        </div>
-      {% else %}
-       <p class="bg-yellow-100 text-yellow-800 p-4 rounded-md shadow-md mb-6">No secrets found in this environment yet.</p>
-      {% endif %}
-    </form>
+        <form action="{{ url_for('update_all') }}" method="post" id="updateAllForm"> {# Wrap table and buttons in form #}
+          <input type="hidden" name="env" value="{{ env }}">
+          <input type="hidden" name="redirect_to" value="show_all"> {# Indicate where to redirect after updating #}
+          <div class="overflow-x-auto shadow-md rounded-lg"> {# Add horizontal scroll on small screens if table is wide #}
+            <table id="secretsTable" class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th> {# Added Actions column #}
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+              {% for secret in decoded_list %} {# Iterate through list of dictionaries #}
+                <tr>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ secret.key }}</td> {# Access key using dot notation #}
+                  <td class="px-6 py-4 text-sm text-gray-500">
+                    <input type="hidden" name="keys" value="{{ secret.key }}"> {# Access key using dot notation #}
+                    <input type="text" name="values" value="{{ secret.value }}" class="w-full px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"> {# Access value using dot notation #}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-center"> {# Actions column cell #}
+                      {# Ensure delete form is *outside* the update form if you want separate submit #}
+                      {# Or handle deletion via JS/AJAX if inside the same form #}
+                      {# For simplicity, keeping it as a separate form for now #}
+                      <form action="{{ url_for('delete_secret') }}" method="post" onsubmit="return confirm('Are you sure you want to delete the secret \'{{ secret.key }}\'? This cannot be undone.');" class="inline-block"> {# Access key using dot notation #}
+                        <input type="hidden" name="env" value="{{ env }}">
+                        <input type="hidden" name="key" value="{{ secret.key }}"> {# Access key using dot notation #}
+                        <button type="submit" class="px-4 py-2 bg-red-600 text-white text-xs font-semibold rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Delete</button>
+                      </form>
+                  </td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-6 flex flex-wrap gap-4 items-center"> {# Use flex and gap for button layout #}
+            <button type="submit" form="updateAllForm" class="px-6 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Update All Shown Secrets</button> {# Updated button text #}
+             {# New button to show raw YAML #}
+            <button type="button" id="showRawYamlBtn" class="px-6 py-2 bg-yellow-600 text-white font-semibold rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2">View Raw YAML Data Block</button>
+            <a href="{{ url_for('export_env', env=env) }}" class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Download YAML Export</a> {# Moved Export button here #}
+            <button type="button" onclick="window.location='{{ url_for('index', env=env) }}'" class="px-6 py-2 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">Back to Dashboard</button> {# Updated button text #}
+          </div>
+        </form> {# Close the form around the table and update button #}
+        {% else %}
+         <p class="bg-yellow-100 text-yellow-800 p-4 rounded-md shadow-md mb-6">No secrets found in this environment yet.</p>
+        {% endif %}
+    </div>
   </div>
+</div>
+
+{# Raw YAML Modal Structure #}
+<div id="rawYamlModalOverlay" class="modal-overlay">
+  <div class="modal-content">
+    <button id="closeModalBtn" class="modal-close-button">&times;</button>
+    <h3 class="text-lg font-medium text-gray-700 mb-3">Raw Base64 Encoded YAML Data Block</h3>
+    <textarea id="rawYamlContent" readonly></textarea>
+    <button id="copyRawYamlBtn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Copy Encoded Data</button>
+  </div>
+</div>
+
+<script>
+// JSON.parse is potentially unsafe if the data comes directly from user input.
+// However, here it comes from Flask's `decoded_list | tojson | safe`.
+// `tojson` escapes necessary characters for JSON. `safe` prevents further Jinja2 escaping.
+// As long as the Flask backend is controlled and the `decoded_list` contains
+// dictionary structures with string keys/values as intended, this should be safe in this context.
+// If there were concerns about malicious data somehow ending up in decoded_list,
+// a more robust approach might involve fetching the data via a separate AJAX endpoint.
+// But given the application's scope (local file-based secret management), this is acceptable.
+</script>
+
 {% endblock %}
